@@ -1,0 +1,355 @@
+---
+title: "FCD Assignment 3"
+date: "2024-11-24"
+always_allow_html: true
+output:
+  word_document: default
+  pdf_document: default
+---
+Authors:
+- Afonso Vaz 64505
+- Lloyd D'silva 64858
+- Matei-Alexandru Lupașcu 64471
+
+Assignment 3 - 
+
+Option A - CSV File: airpollution.csv
+
+ ### Introduction
+In this project, we analyze a dataset on air pollution across 41 cities in the USA, containing the following variables:
+
+- **so2**: Sulphur dioxide content of air in micrograms per cubic meter.
+- **temp**: Average annual temperature (°F).
+- **manuf**: Number of manufacturing enterprises employing 20 or more workers.
+- **pop**: Population size (1970 census) in thousands.
+- **wind**: Average wind speed in miles per hour.
+- **precip**: Average annual precipitation in inches.
+- **days**: Average number of days with precipitation per year.
+
+-----------------------------------------------------------------------------------------------------------------------------
+
+### Task 1: Performing Principal Components Analysis
+ 
+First, we must begin with a brief analysis of the dataset, to know what we are working with.
+ 
+```{r}
+# Import necessary libraries
+library(psych)
+library(ggplot2)
+```
+
+```{r}
+# Load the CSV file and check the first 6 rows
+pollution <- read.csv("airpollution.csv")
+head(pollution)
+```
+```{r}
+# Check the data type of the variables
+str(pollution)
+```
+To begin, we removed non-numeric variables (e.g., "city") to retain only numerical data.
+
+```{r}
+# Removal of the variable "city" for the analysis of the dataset
+pollution_dataset <- pollution[,2:8]
+head(pollution_dataset)
+```
+With the new 'pollution_dataset' made, we can now make a brief preliminary analysis of the charcateristics of the dataset. We will be checking the sd and the mean, since these are crucial for making a decision on which matrix we will be using for the PCA analysis.
+
+```{r}
+describe(pollution_dataset)
+```
+
+After observing significant differences in the means and standard deviations of the variables, we chose to conduct PCA using the correlation matrix.
+
+#### Determining the Number of Principal Components
+
+To follow up with the PCA, we need to determine how many PC's we should consider for the analysis.
+
+We employed three standard methods to decide how many components to retain:
+
+1. Kaiser Criteria: Retain components with eigenvalues > 1.
+2. Proportion of Variance Explained: Retain components contributing to a cumulative variance > 80%.
+3. Scree Plot: Visual inspection of the plot indicating an "elbow" point.
+
+We can start with Kaiser Criteria ->
+```{r} 
+### Kaiser Criteria ###
+
+# Obtain Eigenvalues and Eigenvectors. Check which are > 1
+
+## 1st) Determine the correlation matrix
+
+cor_pollution <- cor(pollution_dataset)
+cor_pollution
+
+## 2nd) Obtain eigenvalues and eigenvectors
+
+eigen_pollution <- eigen(cor_pollution)
+eigen_pollution
+```
+Taking a look at the eigenvalues, there are 3 values that are > 1; in that case, we will choose the 1st 3 eigenvalues according to the Kaiser Criteria.
+
+Now we can consider the proportion of the components ->
+```{r}
+### Proportion of the components ###
+
+# Perform PCA
+
+pca_pollution <- princomp(pollution_dataset,cor = TRUE)
+
+print(summary(pca_pollution),loadings = TRUE)
+
+# Choose the components with the best SD (should be higher than 80%).
+```
+Taking a look at the Standard Deviation, there are 4 values that are above 80%, however, we will stick with 3, since there are 3 standard deviation values above 1 and that correlates with the amount of PCs chosen in the Kaiser's criteria.
+
+Now we will try with the Scree-Plot ->
+```{r}
+### Scree-Plot ###
+
+# Calculate the total variance explained by each principal component
+var_explained_pollution = pca_pollution$sdev^2  / sum(pca_pollution$sdev^2)
+
+qplot(c(1:7), var_explained_pollution) + geom_line() + xlab("Principal Component") + ylab("Variance Explained") + ggtitle("Scree Plot") + ylim(0,0.5)
+
+```
+Taking a look at this Scree-Plot, we can see there's a big slope in the PC 3, so, according to the Scree-Plot, we should choose 3 PCs
+
+Based on all the possible methodologies, we should choose 3 Principal Components.
+
+### Task 2: Selection of Principal Components
+
+```{r}
+summary(pca_pollution)
+```
+The retained components collectively explained a substantial proportion of the variance in the dataset. The breakdown is as follows:
+
+- PC1: Largest contribution to variance (~40%).
+- PC2: Moderate contribution (~22%).
+- PC3: Moderate contribution (~20%).
+
+Thus, the three components together account for approximately 80.5% of the total variance, making them sufficient to summarize the dataset effectively.
+
+### Task 3: Explain the importance of the variables for the explanation of each of the principal components retained.
+
+We analyzed the variable loadings (correlations between variables and components) to interpret the roles of individual variables:
+
+```{r}
+cor(pollution_dataset,pca_pollution$scores)
+```
+Firstly, we apply the rule to the 1st P.C.
+
+```{r}
+# We apply a rule for the 1st P.C.
+sqrt(eigen_pollution$values [1]/7)
+```
+1. PC1: Strongly influenced by **so2**, **manuf**, and **pop**, indicating that this component captures industrial activity and population density.
+
+Now, we apply the rule to the 2nd P.C.
+
+```{r}
+# We apply a rule for the 2nd P.C.
+sqrt(eigen_pollution$values [2]/7)
+```
+2. PC2: Dominated by **precip** and **days**, representing weather conditions and precipitation patterns.
+
+Now, we apply the rule to the 3rd P.C.
+
+```{r}
+# We apply a rule for the 3rd P.C.
+sqrt(eigen_pollution$values [3]/7)
+```
+3. PC3: Primarily related to **temp**, emphasizing temperature variations along with precipitation.
+
+#### Importance of Variables
+
+- **PC1**: Variables related to industrialization (e.g., **so2**) are critical for understanding urban pollution dynamics.
+- **PC2**: Precipitation-related variables highlight environmental factors affecting air quality.
+- **PC3**: Temperature influences seasonal patterns and interactions with precipitation.
+
+### Task 4: Make a graphical representation of the principal components and present relevant results.
+
+We created multiple different Biplot representations, as we considered 3 relevant principal components. Therefore, we analyzed the 3 possible combinations between each principal component, as following: PC1 vs PC2, PC1 vs PC3, PC2 vs PC3.
+
+```{r}
+# Graphical representation of the principal components
+
+library(factoextra)
+
+# Biplot for PC1 vs PC2
+fviz_pca_biplot(pca_pollution, axes = c(1, 2), geom.ind = "point", label = "var") +
+  xlab("PC1") + 
+  ylab("PC2") +
+  ggtitle("Biplot: PC1 vs PC2")
+
+# Biplot for PC1 vs PC3
+fviz_pca_biplot(pca_pollution, axes = c(1, 3), geom.ind = "point", label = "var") +
+  xlab("PC1") + 
+  ylab("PC3") +
+  ggtitle("Biplot: PC1 vs PC3")
+
+# Biplot for PC2 vs PC3
+fviz_pca_biplot(pca_pollution, axes = c(2, 3), geom.ind = "point", label = "var") +
+  xlab("PC2") + 
+  ylab("PC3") +
+  ggtitle("Biplot: PC2 vs PC3")
+```
+
+Based on the conclusions regarding the influence of each variable on the 3 principal components, we considered the following data as relevant for each Biplot representation:
+
+- **PC1 vs PC2**: **so2**, **manuf**, **pop**, **precip**, **days**
+- **PC1 vs PC3**: **so2**, **manuf**, **pop**, **temp**
+- **PC2 vs PC3**: **precip**, **days**, **temp**
+
+The first plot indicates a strong positive correlation between **manuf** and **pop**, a strong positive correlation **wind** and **so2**, a strong negative correlation between **temp** and **wind** and a strong negative correlation between **temp** and **so2**.
+The second plot indicates a strong positive correlation between **manuf** and **pop** and a strong negative correlation between **temp** and **wind**.
+The third plot indicates a strong positive correlation between **manuf** and **pop**, a strong positive correlation between **days** and **so2** and a strong negative correlation between **temp** and **wind**.
+
+### Task 5:  Perform a k-means clustering.
+
+As the data range has a high variability, the first step is standardizing the data.
+
+```{r}
+# Data scaling
+
+pollution_scaled <- scale(pollution_dataset)
+```
+
+Although it isn't the most accurate technique, we decided to use the widely used Elbow point method in order to obtain the number of clusters that we want to obtain. For implementing this, we started by computing the Within-Cluster Sum of Squares (WSS), and plotted it against the number of potential clusters for the algorithm.
+
+```{r}
+# Elbow point method
+
+set.seed(3123) # For reproducibility
+wss <- sapply(1:10, function(k) {
+  kmeans(pollution_scaled, centers = k, nstart = 25)$tot.withinss
+})
+
+elbow_plot <- data.frame(
+  Clusters = 1:10,
+  WSS = wss
+)
+
+ggplot(elbow_plot, aes(x = Clusters, y = WSS)) +
+  geom_line(color = "#59A81A", linewidth = 0.5) + # Line for WSS
+  geom_point(color = "#E7B800", size = 2) + # Points for each WSS value
+  geom_vline(xintercept = 4, linetype = "dashed", color = "#F06449") + # Optional elbow point
+  labs(
+    title = "Elbow point method",
+    x = "Number of Clusters",
+    y = "Within-Cluster Sum of Squares (WSS)"
+  ) +
+  theme_minimal()
+```
+As it observed in the graphical representation of WWS(Number of Clusters), we determined the first elbow point as corresponding to 4 clusters, therefore we will use this number within the K-means Algorithm.
+
+```{r}
+# K-means algorithm
+
+set.seed(3123) # Setting a seed for the algorithm grants reproducibility 
+kmean <- kmeans(pollution_scaled, 4) #
+kmean
+```
+###  Task 6: Make a graphical representation of the clusterings obtained.
+
+Even if we decided that there are 3 principal components that are relevant for our data, we graphically represented the 4 clusters using, initially, only the first 2 principal components, for a 2D Representation.
+
+```{r}
+#2D Representation of the clusters
+
+fviz_cluster(
+  kmean,
+  data = pca_pollution$scores[, 1:2], 
+  geom = "point",
+  ellipse.type = "convex", 
+  palette = c("#2E6FDF", "#59A81A", "#E7B800", "#F06449"), 
+  pointsize = 1.5, 
+  ellipse.alpha = 0.2, 
+  ggtheme = theme_minimal(),
+  shape = 16
+) +
+  labs(
+    title = "K-means Clustering (PC1, PC2)",
+    subtitle = "4 clusters visualized in the first two principal components",
+    x = "PC1",
+    y = "PC2"
+  ) +
+  theme(
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5),
+    legend.title = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+```
+For a 3D Representation of the clusters, we represented the data using all of the 3 principal components that we considered above.
+
+```{r}
+#3D Representation of the clusters
+
+library(plotly)
+
+plot_ly(
+  x = ~pca_pollution$scores[, 1], # PC1
+  y = ~pca_pollution$scores[, 2], # PC2
+  z = ~pca_pollution$scores[, 3], # PC3
+  color = ~factor(kmean$cluster), 
+  colors = c("#2E6FDF", "#59A81A", "#E7B800", "#F06449"), 
+  type = "scatter3d",
+  mode = "markers"
+) %>%
+  layout(
+    title = "K-means 3D Cluster Visualization (PC1, PC2, PC3)",
+    scene = list(
+      xaxis = list(title = "PC1"),
+      yaxis = list(title = "PC2"),
+      zaxis = list(title = "PC3")
+    )
+  )
+```
+
+###  Task 7: Write a brief description of each cluster.
+
+Based on the information that we gathered from clustering the data using the K-means algorithm, we determined that:
+
+**Cluster 1:** (Blue)
+
+  Moderate levels of SO2 pollution 
+  Cool temperatures 
+  High manufacturing activity
+  Medium-sized population 
+  High wind speeds on average
+  Moderate precipitation and a high number of rainy days
+
+**Cluster 2:** (Green)
+
+  Low SO2 levels
+  Warmer temperatures
+  Medium manufacturing activity 
+  Medium-sized population
+  Moderate wind speeds on average
+  High precipitation and frequent rainy days
+
+**Cluster 3:** (Orange)
+
+  Extremely high SO2 levels 
+  Cool temperatures 
+  Very high manufacturing activity 
+  Very large populations 
+  High wind speeds on average
+  Moderate precipitation and a moderate number of rainy days 
+
+**Cluster 4:** (Red)
+
+  Low SO2 levels 
+  Mild temperatures
+  Low manufacturing activity
+  Smaller populations
+  Lower wind speeds on average
+  Low precipitation and fewer rainy days
+
+
+
+
+
+
